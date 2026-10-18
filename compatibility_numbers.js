@@ -1,5 +1,5 @@
 
-const VERSION = "1.3";
+const VERSION = "1.4";
 
 const MEANINGS = {
   consciousness: {
@@ -48,45 +48,34 @@ const MEANINGS = {
   }
 };
 
-function reduceNumber(number) {
-  while (number > 9) {
-    number = String(number)
-      .split("")
-      .reduce((sum, digit) => sum + Number(digit), 0);
+function reduceNumber(n) {
+  n = Math.abs(Number(n));
+  while (n > 9) {
+    n = String(n).split("").reduce((s, d) => s + Number(d), 0);
   }
-  return number;
+  return n;
 }
 
 function sumDigits(value) {
-  return String(value)
-    .split("")
-    .reduce((sum, digit) => sum + Number(digit), 0);
+  return String(value).split("").reduce((s, d) => s + Number(d), 0);
 }
 
 function parseDate(value) {
-  const match = String(value || "").trim().match(
+  const match = String(value ?? "").trim().match(
     /^(\d{2})\.(\d{2})\.(\d{4})$/
   );
-
   if (!match) return null;
 
   const day = Number(match[1]);
   const month = Number(match[2]);
   const year = Number(match[3]);
   const date = new Date(Date.UTC(year, month - 1, day));
-  const now = new Date();
-  const today = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate()
-  );
 
   if (
     year < 1900 ||
     date.getUTCFullYear() !== year ||
     date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day ||
-    date.getTime() > today
+    date.getUTCDate() !== day
   ) {
     return null;
   }
@@ -120,14 +109,67 @@ function calculateCompatibility(woman, man) {
   return { consciousness, realization, mission, final };
 }
 
-const TITLES = {
-  consciousness: "✨ Сознание пары",
-  realization: "🌟 Реализация пары",
-  mission: "🎯 Миссия пары",
-  final: "💫 Итог совместимости"
-};
+function extractDates(input) {
+  // Поддержка JSON, текстовых ответов и вложенных объектов.
+  if (typeof input === "string") {
+    try {
+      input = JSON.parse(input);
+    } catch {
+      const dates = input.match(/\d{2}\.\d{2}\.\d{4}/g) || [];
+      return { womanDate: dates[0] || "", manDate: dates[1] || "" };
+    }
+  }
+
+  if (input && typeof input === "object") {
+    const womanDate =
+      input.womanDate ?? input.woman_date ?? input.woman;
+    const manDate =
+      input.manDate ?? input.man_date ?? input.man;
+
+    if (womanDate != null && manDate != null) {
+      return {
+        womanDate: String(womanDate).trim(),
+        manDate: String(manDate).trim()
+      };
+    }
+
+    const candidates = [
+      input.text,
+      input.compatibility_dates,
+      input.user_reply,
+      input.user_input,
+      input.userInput,
+      input.message,
+      input.body,
+      input.data
+    ];
+
+    for (const candidate of candidates) {
+      const result = extractDates(candidate);
+      if (result.womanDate && result.manDate) return result;
+    }
+
+    // Последняя попытка: найти обе даты в любом поле объекта.
+    const allDates = JSON.stringify(input).match(
+      /\d{2}\.\d{2}\.\d{4}/g
+    ) || [];
+
+    if (allDates.length >= 2) {
+      return { womanDate: allDates[0], manDate: allDates[1] };
+    }
+  }
+
+  return { womanDate: "", manDate: "" };
+}
 
 function buildText(womanDate, manDate, woman, man, compatibility) {
+  const titles = {
+    consciousness: "✨ Сознание пары",
+    realization: "🌟 Реализация пары",
+    mission: "🎯 Миссия пары",
+    final: "💫 Итог совместимости"
+  };
+
   const lines = [
     "💞 СОВМЕСТИМОСТЬ ПАРЫ",
     "",
@@ -148,7 +190,7 @@ function buildText(womanDate, manDate, woman, man, compatibility) {
 
   for (const key of ["consciousness", "realization", "mission", "final"]) {
     const number = compatibility[key];
-    lines.push("", `${TITLES[key]}: ${number}`, MEANINGS[key][number]);
+    lines.push("", `${titles[key]}: ${number}`, MEANINGS[key][number]);
   }
 
   lines.push(
@@ -159,98 +201,27 @@ function buildText(womanDate, manDate, woman, man, compatibility) {
   return lines.join("\n");
 }
 
-function extractDates(input) {
-  if (typeof input === "string") {
-    try {
-      input = JSON.parse(input);
-    } catch {
-      const dates = input.match(/\d{2}\.\d{2}\.\d{4}/g) || [];
-      return {
-        womanDate: dates[0] || "",
-        manDate: dates[1] || ""
-      };
-    }
-  }
-
-  if (!input || typeof input !== "object") {
-    return { womanDate: "", manDate: "" };
-  }
-
-  const womanDate = input.womanDate ?? input.woman_date ?? input.woman;
-  const manDate = input.manDate ?? input.man_date ?? input.man;
-
-  if (typeof womanDate === "string" && typeof manDate === "string") {
-    return {
-      womanDate: womanDate.trim(),
-      manDate: manDate.trim()
-    };
-  }
-
-  const candidates = [
-    input.text,
-    input.compatibility_dates,
-    input.user_reply,
-    input.user_input,
-    input.userInput,
-    input.data
-  ];
-
-  for (const candidate of candidates) {
-    if (typeof candidate === "string") {
-      const dates = candidate.match(/\d{2}\.\d{2}\.\d{4}/g) || [];
-      if (dates.length >= 2) {
-        return { womanDate: dates[0], manDate: dates[1] };
-      }
-
-      try {
-        const nested = JSON.parse(candidate);
-        const result = extractDates(nested);
-        if (result.womanDate && result.manDate) return result;
-      } catch {
-        // Проверяем следующие поля.
-      }
-    } else if (candidate && typeof candidate === "object") {
-      const result = extractDates(candidate);
-      if (result.womanDate && result.manDate) return result;
-    }
-  }
-
-  const allDates = JSON.stringify(input).match(
-    /\d{2}\.\d{2}\.\d{4}/g
-  ) || [];
-
-  return {
-    womanDate: allDates[0] || "",
-    manDate: allDates[1] || ""
-  };
-}
-
 export default {
   async fetch(request) {
-    const cors = {
+    const headers = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type"
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Content-Type": "application/json; charset=utf-8"
     };
 
-    const json = (data, status = 200) =>
-      new Response(JSON.stringify(data), {
-        status,
-        headers: {
-          ...cors,
-          "Content-Type": "application/json; charset=utf-8"
-        }
-      });
+    const respond = (data, status = 200) =>
+      new Response(JSON.stringify(data), { status, headers });
 
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: cors });
+      return new Response(null, { status: 204, headers });
     }
 
     if (request.method === "GET") {
-      return json({
+      return respond({
         ok: true,
         version: VERSION,
-        message: "Отправьте две даты через пробел или полями womanDate и manDate.",
+        message: "Отправьте POST с womanDate и manDate или с текстом, содержащим две даты.",
         example: {
           womanDate: "09.06.1979",
           manDate: "29.11.1974"
@@ -259,19 +230,17 @@ export default {
     }
 
     if (request.method !== "POST") {
-      return json({ ok: false, error: "Используйте POST." }, 405);
+      return respond({ ok: false, error: "Используйте POST." }, 405);
     }
 
+    let raw = "";
     let body;
+
     try {
-      const raw = await request.text();
-      try {
-        body = JSON.parse(raw);
-      } catch {
-        body = raw;
-      }
+      raw = await request.text();
+      body = JSON.parse(raw);
     } catch {
-      return json({ ok: false, error: "Не удалось прочитать тело запроса." }, 400);
+      body = raw;
     }
 
     const { womanDate, manDate } = extractDates(body);
@@ -279,10 +248,12 @@ export default {
     const parsedMan = parseDate(manDate);
 
     if (!parsedWoman || !parsedMan) {
-      return json({
+      return respond({
         ok: false,
+        version: VERSION,
         error: "Укажите две корректные даты в формате ДД.ММ.ГГГГ.",
         received: { womanDate, manDate },
+        rawBody: raw.slice(0, 500),
         example: "09.06.1979 29.11.1974"
       }, 400);
     }
@@ -291,7 +262,7 @@ export default {
     const man = calculatePerson(parsedMan);
     const compatibility = calculateCompatibility(woman, man);
 
-    return json({
+    return respond({
       ok: true,
       version: VERSION,
       womanDate: parsedWoman.date,
@@ -299,7 +270,13 @@ export default {
       manDate: parsedMan.date,
       man,
       compatibility,
-      text: buildText(parsedWoman.date, parsedMan.date, woman, man, compatibility)
+      text: buildText(
+        parsedWoman.date,
+        parsedMan.date,
+        woman,
+        man,
+        compatibility
+      )
     });
   }
 };
