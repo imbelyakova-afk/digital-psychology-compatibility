@@ -1,41 +1,43 @@
 
-const meanings = {
+const VERSION = "1.0";
+
+const MEANINGS = {
   consciousness: {
-    1: "Притяжение сильных личностей. В плюсе партнёры вдохновляют друг друга, уважают силу и самостоятельность. В минусе возможны борьба за лидерство и соперничество.",
-    2: "Чувства и тайны. В плюсе есть эмоциональная чуткость и интуитивное понимание. В минусе возможны недосказанность, ревность и скрытые переживания.",
-    3: "Лёгкость и романтика. В плюсе партнёры радуют друг друга, много общаются и создают атмосферу праздника. В минусе возможны несерьёзность и недостаток глубины.",
-    4: "Стабильность и надёжность. В плюсе есть ответственность, верность договорённостям и стремление к прочным отношениям. В минусе возможны контроль и жёсткость.",
-    5: "Свобода и перемены. В плюсе отношения наполнены новизной и развитием. В минусе одному или обоим может не хватать постоянства и определённости.",
-    6: "Любовь и семья. В плюсе это романтическое притяжение, нежность, желание быть вместе и создавать близкие отношения. В минусе возможны любовные треугольники, сомнения и сложный выбор.",
-    7: "Страсть и характер. В плюсе партнёры поддерживают амбиции друг друга и вместе движутся к целям. В минусе возможны борьба за власть и конфликты.",
-    8: "Сила и справедливость. В плюсе партнёры умеют брать ответственность и строить отношения на честности. В минусе возможны претензии, обиды и подсчёт того, кто кому должен.",
-    9: "Глубина и внутренний мир. В плюсе есть принятие, мудрость и уважение личного пространства. В минусе возможны эмоциональная дистанция и закрытость."
+    1: "Притяжение сильных личностей. В плюсе партнёры вдохновляют друг друга и уважают самостоятельность. В минусе возможна борьба за лидерство.",
+    2: "Чувства и интуиция. В плюсе есть эмоциональная чуткость. В минусе возможны недосказанность, ревность и скрытые переживания.",
+    3: "Лёгкость и романтика. В плюсе много общения и радости. В минусе могут не хватать серьёзности и глубины.",
+    4: "Стабильность и надёжность. В плюсе есть ответственность и прочная основа отношений. В минусе возможны контроль и жёсткость.",
+    5: "Свобода и перемены. В плюсе отношения наполнены новизной. В минусе может не хватать постоянства.",
+    6: "Любовь и семья. В плюсе есть нежность и желание быть вместе. В минусе возможны сомнения и сложный выбор.",
+    7: "Страсть и характер. В плюсе партнёры поддерживают цели друг друга. В минусе возможны соперничество и конфликты.",
+    8: "Сила и справедливость. В плюсе отношения строятся на честности и ответственности. В минусе возможны претензии и обиды.",
+    9: "Глубина и внутренний мир. В плюсе есть принятие и уважение личного пространства. В минусе возможны закрытость и дистанция."
   },
   realization: {
-    1: "Инициатива. В плюсе пара быстро принимает решения и не боится начинать новое. В минусе каждый может настаивать на своём.",
-    2: "Доверие и недосказанность. В плюсе партнёры тонко чувствуют друг друга. В минусе возможны секреты, подозрения и ситуации, в которых трудно понять истинные намерения. Это не означает, что измена обязательно произойдёт.",
-    3: "Общение. В плюсе отношения поддерживают юмор, разговоры и общие впечатления. В минусе слова могут расходиться с поступками.",
-    4: "Порядок и опора. В плюсе пара умеет договариваться о быте, деньгах и обязанностях. В минусе отношения могут стать слишком строгими.",
-    5: "Общие ценности. В плюсе помогают честность, договорённости и уважение взглядов друг друга. В минусе возможны споры о правилах и принципах.",
-    6: "Выбор и партнёрство. В плюсе оба вкладываются в отношения и выбирают быть вместе. В минусе возможны колебания, ревность и необходимость прояснить границы.",
-    7: "Движение к цели. В плюсе пара умеет действовать сообща. В минусе отношения превращаются в соревнование.",
-    8: "Баланс и ответственность. В плюсе важны равный вклад и честные договорённости. В минусе возникают претензии и ощущение несправедливости.",
-    9: "Самостоятельность. В плюсе каждый сохраняет индивидуальность. В минусе партнёры могут отдаляться и замыкаться в себе."
+    1: "Инициатива. В плюсе пара смело начинает новое. В минусе каждый может настаивать на своём.",
+    2: "Доверие. В плюсе партнёры тонко чувствуют друг друга. В минусе возможны подозрения и недосказанность.",
+    3: "Общение. В плюсе отношения поддерживают юмор и общие впечатления. В минусе слова могут расходиться с поступками.",
+    4: "Порядок и опора. В плюсе пара умеет договариваться о быте и обязанностях. В минусе отношения могут стать слишком строгими.",
+    5: "Общие ценности. В плюсе помогают честность и уважение взглядов. В минусе возможны споры о правилах.",
+    6: "Выбор и партнёрство. В плюсе оба вкладываются в отношения. В минусе возможны колебания и ревность.",
+    7: "Движение к цели. В плюсе пара действует сообща. В минусе отношения могут превратиться в соревнование.",
+    8: "Баланс и ответственность. В плюсе важны равный вклад и честные договорённости. В минусе возникает ощущение несправедливости.",
+    9: "Самостоятельность. В плюсе каждый сохраняет индивидуальность. В минусе партнёры могут отдаляться."
   },
   mission: {
-    1: "Совместное начало. Пара может вдохновлять друг друга на смелые решения. Важно не превращать отношения в соревнование.",
-    2: "Тонкая связь. Главная тема — доверие, эмоциональная честность и умение говорить о том, что беспокоит.",
-    3: "Радость и творчество. Отношения расцветают благодаря общению, совместным занятиям и лёгкости.",
-    4: "Создание опоры. Важны надёжность, ответственность и ясные договорённости о совместной жизни.",
-    5: "Развитие и перемены. Пара может многое открывать вместе, если сохраняет уважение к свободе каждого.",
+    1: "Совместное начало. Пара вдохновляет друг друга на смелые решения. Важно не превращать отношения в соревнование.",
+    2: "Тонкая связь. Важны доверие, эмоциональная честность и умение говорить о переживаниях.",
+    3: "Радость и творчество. Отношения расцветают благодаря общению и совместным занятиям.",
+    4: "Создание опоры. Важны надёжность, ответственность и ясные договорённости.",
+    5: "Развитие и перемены. Пара может открывать новое, уважая свободу каждого.",
     6: "Любовь и выбор. Центральная тема — взаимность, близость и осознанный выбор друг друга.",
-    7: "Общая цель. Отношения укрепляются, когда партнёры действуют как команда, а не конкуренты.",
-    8: "Равновесие. Важны честность, ответственность и способность справедливо решать спорные вопросы.",
-    9: "Мудрость и глубина. Пара учится принимать различия и сохранять связь, не лишая друг друга личного пространства."
+    7: "Общая цель. Отношения укрепляются, когда партнёры действуют как команда.",
+    8: "Равновесие. Важны честность, ответственность и справедливые решения.",
+    9: "Мудрость и глубина. Пара учится принимать различия и уважать личное пространство."
   },
   final: {
     1: "Итоговая тема — самостоятельность и новые начинания. Важно поддерживать инициативу друг друга.",
-    2: "Итоговая тема — доверие и эмоциональная близость. Важно не заменять откровенный разговор догадками.",
+    2: "Итоговая тема — доверие и эмоциональная близость. Важно говорить открыто, а не полагаться на догадки.",
     3: "Итоговая тема — радость, общение и творчество. Отношениям полезны общие впечатления.",
     4: "Итоговая тема — стабильность и ответственность. Договорённости помогают укреплять союз.",
     5: "Итоговая тема — свобода и развитие. Важно сочетать новизну с уважением к обязательствам.",
@@ -55,63 +57,183 @@ function reduceNumber(number) {
   return number;
 }
 
-function validNumbers(numbers) {
-  return Array.isArray(numbers) &&
-    numbers.length === 3 &&
-    numbers.every(n =>
-      Number.isInteger(n) && n >= 1 && n <= 9
-    );
+function sumDigits(value) {
+  return String(value)
+    .split("")
+    .reduce((sum, digit) => sum + Number(digit), 0);
 }
 
-function calculate(woman, man) {
-  const consciousness = reduceNumber(woman[0] + man[0]);
-  const realization = reduceNumber(woman[1] + man[1]);
-  const mission = reduceNumber(woman[2] + man[2]);
-  const final = reduceNumber(consciousness + realization + mission);
+function parseDate(value) {
+  const match = String(value || "").trim().match(
+    /^(\d{2})\.(\d{2})\.(\d{4})$/
+  );
 
-  const compatibility = {
+  if (!match) return null;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const today = new Date();
+
+  const todayUTC = Date.UTC(
+    today.getUTCFullYear(),
+    today.getUTCMonth(),
+    today.getUTCDate()
+  );
+
+  if (
+    year < 1900 ||
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day ||
+    date.getTime() > todayUTC
+  ) {
+    return null;
+  }
+
+  return {
+    date: match[0],
+    day,
+    digits: match[0].replace(/\./g, "")
+  };
+}
+
+function calculatePerson(parsed) {
+  const consciousness = reduceNumber(parsed.day);
+  const realization = reduceNumber(sumDigits(parsed.digits));
+  const mission = reduceNumber(consciousness + realization);
+  const final = reduceNumber(
+    consciousness + realization + mission
+  );
+
+  return {
     consciousness,
     realization,
     mission,
     final
   };
+}
 
-  const short = {};
-  const detailed = {};
+function calculateCompatibility(woman, man) {
+  const consciousness = reduceNumber(
+    woman.consciousness + man.consciousness
+  );
 
-  for (const key of Object.keys(compatibility)) {
-    const number = compatibility[key];
-    short[key] = {
-      number,
-      title: {
-        consciousness: "Сознание",
-        realization: "Реализация",
-        mission: "Миссия пары",
-        final: "Итог"
-      }[key],
-      description: meanings[key][number]
-    };
-    detailed[key] = {
-      number,
-      title: short[key].title,
-      description: meanings[key][number],
-      reflection: {
-        consciousness: "Обратите внимание на первое притяжение, эмоциональную реакцию друг на друга и то, как вы проявляете чувства.",
-        realization: "Обсудите доверие, ожидания, границы и то, как вы решаете бытовые и практические вопросы.",
-        mission: "Подумайте, чему вы учитесь в этих отношениях и какие общие ценности хотите поддерживать.",
-        final: "Воспринимайте итог как символическую тему для размышления, а не как предсказание будущего."
-      }[key]
-    };
-  }
+  const realization = reduceNumber(
+    woman.realization + man.realization
+  );
+
+  const mission = reduceNumber(
+    woman.mission + man.mission
+  );
+
+  const final = reduceNumber(
+    consciousness + realization + mission
+  );
 
   return {
-    woman,
-    man,
-    womanFinal: reduceNumber(woman[0] + woman[1] + woman[2]),
-    manFinal: reduceNumber(man[0] + man[1] + man[2]),
-    compatibility,
-    short,
-    detailed
+    consciousness,
+    realization,
+    mission,
+    final
+  };
+}
+
+const TITLES = {
+  consciousness: "Сознание пары",
+  realization: "Реализация пары",
+  mission: "Миссия пары",
+  final: "Итог совместимости"
+};
+
+function buildText(womanDate, manDate, woman, man, compatibility) {
+  const keys = [
+    "consciousness",
+    "realization",
+    "mission",
+    "final"
+  ];
+
+  const lines = [
+    "💞 СОВМЕСТИМОСТЬ ПАРЫ",
+    "",
+    `👩 Дата рождения женщины: ${womanDate}`,
+    `Сознание: ${woman.consciousness}`,
+    `Реализация: ${woman.realization}`,
+    `Миссия: ${woman.mission}`,
+    `Финал: ${woman.final}`,
+    "",
+    `👨 Дата рождения мужчины: ${manDate}`,
+    `Сознание: ${man.consciousness}`,
+    `Реализация: ${man.realization}`,
+    `Миссия: ${man.mission}`,
+    `Финал: ${man.final}`,
+    "",
+    "❤️ ВАШИ ЧИСЛА СОВМЕСТИМОСТИ"
+  ];
+
+  for (const key of keys) {
+    const number = compatibility[key];
+
+    lines.push(
+      "",
+      `${TITLES[key]}: ${number}`,
+      MEANINGS[key][number]
+    );
+  }
+
+  lines.push(
+    "",
+    "Это символическая нумерологическая интерпретация для самопознания, а не предсказание будущего."
+  );
+
+  return lines.join("\n");
+}
+
+function getDates(body) {
+  if (typeof body === "string") {
+    const value = body.trim();
+
+    try {
+      body = JSON.parse(value);
+    } catch {
+      const dates = value.match(/\d{2}\.\d{2}\.\d{4}/g) || [];
+
+      return {
+        womanDate: dates[0] || "",
+        manDate: dates[1] || ""
+      };
+    }
+  }
+
+  if (!body || typeof body !== "object") {
+    return { womanDate: "", manDate: "" };
+  }
+
+  const womanDate =
+    body.womanDate ||
+    body.woman_date ||
+    body.woman ||
+    "";
+
+  const manDate =
+    body.manDate ||
+    body.man_date ||
+    body.man ||
+    "";
+
+  if (typeof womanDate === "string" && typeof manDate === "string") {
+    return { womanDate: womanDate.trim(), manDate: manDate.trim() };
+  }
+
+  const text = body.text || body.user_input || body.userInput || "";
+  const dates = String(text).match(/\d{2}\.\d{2}\.\d{4}/g) || [];
+
+  return {
+    womanDate: dates[0] || "",
+    manDate: dates[1] || ""
   };
 }
 
@@ -124,59 +246,74 @@ export default {
       "Access-Control-Allow-Headers": "Content-Type"
     };
 
+    const json = (data, status = 200) =>
+      new Response(JSON.stringify(data), { status, headers });
+
     if (request.method === "OPTIONS") {
-      return new Response(null, { headers });
+      return new Response(null, { status: 204, headers });
+    }
+
+    if (request.method === "GET") {
+      return json({
+        ok: true,
+        version: VERSION,
+        message: "Отправьте POST с датами рождения женщины и мужчины.",
+        example: {
+          womanDate: "14.05.1992",
+          manDate: "23.08.1989"
+        }
+      });
     }
 
     if (request.method !== "POST") {
-      return new Response(JSON.stringify({
-        message: "Отправьте POST-запрос с JSON-полями woman и man.",
-        example: {
-          woman: [8, 5, 4],
-          man: [7, 6, 4]
-        }
-      }), { headers });
+      return json({
+        ok: false,
+        error: "Используйте POST."
+      }, 405);
     }
+
+    let body;
 
     try {
-      const body = await request.json();
-      const { woman, man, mode = "short" } = body;
-
-      if (!validNumbers(woman) || !validNumbers(man)) {
-        return new Response(JSON.stringify({
-          error: "Укажите woman и man — по три целых числа от 1 до 9."
-        }), {
-          status: 400,
-          headers
-        });
-      }
-
-      const result = calculate(woman, man);
-
-      if (mode === "detailed") {
-        return new Response(JSON.stringify({
-          mode: "detailed",
-          ...result
-        }), { headers });
-      }
-
-      return new Response(JSON.stringify({
-        mode: "short",
-        woman: result.woman,
-        man: result.man,
-        womanFinal: result.womanFinal,
-        manFinal: result.manFinal,
-        compatibility: result.compatibility,
-        short: result.short
-      }), { headers });
-
-    } catch (error) {
-      return new Response(JSON.stringify({
-        error: "Не удалось обработать запрос. Проверьте JSON."
-      }), {
-        status: 400,
-        headers
-      });
+      body = await request.json();
+    } catch {
+      return json({
+        ok: false,
+        error: "Не удалось прочитать JSON."
+      }, 400);
     }
+
+    const { womanDate, manDate } = getDates(body);
+    const parsedWoman = parseDate(womanDate);
+    const parsedMan = parseDate(manDate);
+
+    if (!parsedWoman || !parsedMan) {
+      return json({
+        ok: false,
+        error: "Укажите две корректные даты в формате ДД.ММ.ГГГГ.",
+        example: "14.05.1992 23.08.1989"
+      }, 400);
+    }
+
+    const woman = calculatePerson(parsedWoman);
+    const man = calculatePerson(parsedMan);
+    const compatibility = calculateCompatibility(woman, man);
+
+    return json({
+      ok: true,
+      version: VERSION,
+      womanDate: parsedWoman.date,
+      woman,
+      manDate: parsedMan.date,
+      man,
+      compatibility,
+      text: buildText(
+        parsedWoman.date,
+        parsedMan.date,
+        woman,
+        man,
+        compatibility
+      )
+    });
   }
 };
