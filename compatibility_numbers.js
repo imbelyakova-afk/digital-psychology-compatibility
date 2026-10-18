@@ -1,5 +1,5 @@
 
-const VERSION = "1.2";
+const VERSION = "1.3";
 
 const MEANINGS = {
   consciousness: {
@@ -98,19 +98,15 @@ function parseDate(value) {
   };
 }
 
-// Формула из калькулятора одного человека.
 function calculatePerson(parsed) {
   const consciousness = reduceNumber(parsed.day);
   const realization = reduceNumber(sumDigits(parsed.digits));
   const mission = reduceNumber(consciousness + realization);
-  const final = reduceNumber(
-    consciousness + realization + mission
-  );
+  const final = reduceNumber(consciousness + realization + mission);
 
   return { consciousness, realization, mission, final };
 }
 
-// Совместимость рассчитывается по соответствующим трём числам.
 function calculateCompatibility(woman, man) {
   const consciousness = reduceNumber(
     woman.consciousness + man.consciousness
@@ -118,12 +114,8 @@ function calculateCompatibility(woman, man) {
   const realization = reduceNumber(
     woman.realization + man.realization
   );
-  const mission = reduceNumber(
-    woman.mission + man.mission
-  );
-  const final = reduceNumber(
-    consciousness + realization + mission
-  );
+  const mission = reduceNumber(woman.mission + man.mission);
+  const final = reduceNumber(consciousness + realization + mission);
 
   return { consciousness, realization, mission, final };
 }
@@ -154,18 +146,9 @@ function buildText(womanDate, manDate, woman, man, compatibility) {
     "❤️ ЧИСЛА СОВМЕСТИМОСТИ"
   ];
 
-  for (const key of [
-    "consciousness",
-    "realization",
-    "mission",
-    "final"
-  ]) {
+  for (const key of ["consciousness", "realization", "mission", "final"]) {
     const number = compatibility[key];
-    lines.push(
-      "",
-      `${TITLES[key]}: ${number}`,
-      MEANINGS[key][number]
-    );
+    lines.push("", `${TITLES[key]}: ${number}`, MEANINGS[key][number]);
   }
 
   lines.push(
@@ -176,7 +159,6 @@ function buildText(womanDate, manDate, woman, man, compatibility) {
   return lines.join("\n");
 }
 
-// Поддерживает JSON-поля и сообщение с двумя датами через пробел.
 function extractDates(input) {
   if (typeof input === "string") {
     try {
@@ -194,20 +176,10 @@ function extractDates(input) {
     return { womanDate: "", manDate: "" };
   }
 
-  const womanDate =
-    input.womanDate ??
-    input.woman_date ??
-    input.woman;
+  const womanDate = input.womanDate ?? input.woman_date ?? input.woman;
+  const manDate = input.manDate ?? input.man_date ?? input.man;
 
-  const manDate =
-    input.manDate ??
-    input.man_date ??
-    input.man;
-
-  if (
-    typeof womanDate === "string" &&
-    typeof manDate === "string"
-  ) {
+  if (typeof womanDate === "string" && typeof manDate === "string") {
     return {
       womanDate: womanDate.trim(),
       manDate: manDate.trim()
@@ -217,6 +189,7 @@ function extractDates(input) {
   const candidates = [
     input.text,
     input.compatibility_dates,
+    input.user_reply,
     input.user_input,
     input.userInput,
     input.data
@@ -226,10 +199,7 @@ function extractDates(input) {
     if (typeof candidate === "string") {
       const dates = candidate.match(/\d{2}\.\d{2}\.\d{4}/g) || [];
       if (dates.length >= 2) {
-        return {
-          womanDate: dates[0],
-          manDate: dates[1]
-        };
+        return { womanDate: dates[0], manDate: dates[1] };
       }
 
       try {
@@ -237,7 +207,7 @@ function extractDates(input) {
         const result = extractDates(nested);
         if (result.womanDate && result.manDate) return result;
       } catch {
-        // Продолжаем проверять остальные поля.
+        // Проверяем следующие поля.
       }
     } else if (candidate && typeof candidate === "object") {
       const result = extractDates(candidate);
@@ -245,7 +215,6 @@ function extractDates(input) {
     }
   }
 
-  // Проверяем все строковые поля, если данные пришли в другом формате.
   const allDates = JSON.stringify(input).match(
     /\d{2}\.\d{2}\.\d{4}/g
   ) || [];
@@ -281,7 +250,7 @@ export default {
       return json({
         ok: true,
         version: VERSION,
-        message: "Отправьте две даты рождения через пробел или полями womanDate и manDate.",
+        message: "Отправьте две даты через пробел или полями womanDate и manDate.",
         example: {
           womanDate: "09.06.1979",
           manDate: "29.11.1974"
@@ -290,14 +259,10 @@ export default {
     }
 
     if (request.method !== "POST") {
-      return json({
-        ok: false,
-        error: "Используйте POST."
-      }, 405);
+      return json({ ok: false, error: "Используйте POST." }, 405);
     }
 
     let body;
-
     try {
       const raw = await request.text();
       try {
@@ -306,10 +271,7 @@ export default {
         body = raw;
       }
     } catch {
-      return json({
-        ok: false,
-        error: "Не удалось прочитать тело запроса."
-      }, 400);
+      return json({ ok: false, error: "Не удалось прочитать тело запроса." }, 400);
     }
 
     const { womanDate, manDate } = extractDates(body);
@@ -337,13 +299,7 @@ export default {
       manDate: parsedMan.date,
       man,
       compatibility,
-      text: buildText(
-        parsedWoman.date,
-        parsedMan.date,
-        woman,
-        man,
-        compatibility
-      )
+      text: buildText(parsedWoman.date, parsedMan.date, woman, man, compatibility)
     });
   }
 };
