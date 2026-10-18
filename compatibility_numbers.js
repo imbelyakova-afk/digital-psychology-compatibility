@@ -1,11 +1,11 @@
 
-const VERSION = "1.0";
+const VERSION = "1.1";
 
 const MEANINGS = {
   consciousness: {
     1: "Притяжение сильных личностей. В плюсе партнёры вдохновляют друг друга и уважают самостоятельность. В минусе возможна борьба за лидерство.",
     2: "Чувства и интуиция. В плюсе есть эмоциональная чуткость. В минусе возможны недосказанность, ревность и скрытые переживания.",
-    3: "Лёгкость и романтика. В плюсе много общения и радости. В минусе могут не хватать серьёзности и глубины.",
+    3: "Лёгкость и романтика. В плюсе много общения и радости. В минусе может не хватать серьёзности и глубины.",
     4: "Стабильность и надёжность. В плюсе есть ответственность и прочная основа отношений. В минусе возможны контроль и жёсткость.",
     5: "Свобода и перемены. В плюсе отношения наполнены новизной. В минусе может не хватать постоянства.",
     6: "Любовь и семья. В плюсе есть нежность и желание быть вместе. В минусе возможны сомнения и сложный выбор.",
@@ -75,12 +75,11 @@ function parseDate(value) {
   const year = Number(match[3]);
 
   const date = new Date(Date.UTC(year, month - 1, day));
-  const today = new Date();
-
-  const todayUTC = Date.UTC(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate()
+  const now = new Date();
+  const today = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate()
   );
 
   if (
@@ -88,7 +87,7 @@ function parseDate(value) {
     date.getUTCFullYear() !== year ||
     date.getUTCMonth() !== month - 1 ||
     date.getUTCDate() !== day ||
-    date.getTime() > todayUTC
+    date.getTime() > today
   ) {
     return null;
   }
@@ -96,7 +95,7 @@ function parseDate(value) {
   return {
     date: match[0],
     day,
-    digits: match[0].replace(/\./g, "")
+    digits: `${match[1]}${match[2]}${match[3]}`
   };
 }
 
@@ -108,75 +107,59 @@ function calculatePerson(parsed) {
     consciousness + realization + mission
   );
 
-  return {
-    consciousness,
-    realization,
-    mission,
-    final
-  };
+  return { consciousness, realization, mission, final };
 }
 
 function calculateCompatibility(woman, man) {
   const consciousness = reduceNumber(
     woman.consciousness + man.consciousness
   );
-
   const realization = reduceNumber(
     woman.realization + man.realization
   );
-
   const mission = reduceNumber(
     woman.mission + man.mission
   );
-
   const final = reduceNumber(
     consciousness + realization + mission
   );
 
-  return {
-    consciousness,
-    realization,
-    mission,
-    final
-  };
+  return { consciousness, realization, mission, final };
 }
 
 const TITLES = {
-  consciousness: "Сознание пары",
-  realization: "Реализация пары",
-  mission: "Миссия пары",
-  final: "Итог совместимости"
+  consciousness: "✨ Сознание пары",
+  realization: "🌟 Реализация пары",
+  mission: "🎯 Миссия пары",
+  final: "💫 Итог совместимости"
 };
 
 function buildText(womanDate, manDate, woman, man, compatibility) {
-  const keys = [
-    "consciousness",
-    "realization",
-    "mission",
-    "final"
-  ];
-
   const lines = [
     "💞 СОВМЕСТИМОСТЬ ПАРЫ",
     "",
-    `👩 Дата рождения женщины: ${womanDate}`,
+    `👩 Женщина — ${womanDate}`,
     `Сознание: ${woman.consciousness}`,
     `Реализация: ${woman.realization}`,
     `Миссия: ${woman.mission}`,
     `Финал: ${woman.final}`,
     "",
-    `👨 Дата рождения мужчины: ${manDate}`,
+    `👨 Мужчина — ${manDate}`,
     `Сознание: ${man.consciousness}`,
     `Реализация: ${man.realization}`,
     `Миссия: ${man.mission}`,
     `Финал: ${man.final}`,
     "",
-    "❤️ ВАШИ ЧИСЛА СОВМЕСТИМОСТИ"
+    "❤️ ЧИСЛА СОВМЕСТИМОСТИ"
   ];
 
-  for (const key of keys) {
+  for (const key of [
+    "consciousness",
+    "realization",
+    "mission",
+    "final"
+  ]) {
     const number = compatibility[key];
-
     lines.push(
       "",
       `${TITLES[key]}: ${number}`,
@@ -186,82 +169,86 @@ function buildText(womanDate, manDate, woman, man, compatibility) {
 
   lines.push(
     "",
-    "Это символическая нумерологическая интерпретация для самопознания, а не предсказание будущего."
+    "Это символическая нумерологическая интерпретация для самопознания, а не точный прогноз отношений."
   );
 
   return lines.join("\n");
 }
 
-function getDates(body) {
-  if (typeof body === "string") {
-    const value = body.trim();
+function extractDates(input) {
+  const values = [];
 
-    try {
-      body = JSON.parse(value);
-    } catch {
-      const dates = value.match(/\d{2}\.\d{2}\.\d{4}/g) || [];
+  function collect(value) {
+    if (typeof value === "string") {
+      const found = value.match(/\d{2}\.\d{2}\.\d{4}/g);
+      if (found) values.push(...found);
+      return;
+    }
 
-      return {
-        womanDate: dates[0] || "",
-        manDate: dates[1] || ""
-      };
+    if (Array.isArray(value)) {
+      for (const item of value) collect(item);
+      return;
+    }
+
+    if (value && typeof value === "object") {
+      for (const [key, item] of Object.entries(value)) {
+        if ([
+          "text",
+          "womanDate",
+          "woman_date",
+          "manDate",
+          "man_date",
+          "woman",
+          "man",
+          "user_input",
+          "userInput",
+          "compatibility_dates",
+          "data"
+        ].includes(key)) {
+          collect(item);
+        }
+      }
     }
   }
 
-  if (!body || typeof body !== "object") {
-    return { womanDate: "", manDate: "" };
-  }
-
-  const womanDate =
-    body.womanDate ||
-    body.woman_date ||
-    body.woman ||
-    "";
-
-  const manDate =
-    body.manDate ||
-    body.man_date ||
-    body.man ||
-    "";
-
-  if (typeof womanDate === "string" && typeof manDate === "string") {
-    return { womanDate: womanDate.trim(), manDate: manDate.trim() };
-  }
-
-  const text = body.text || body.user_input || body.userInput || "";
-  const dates = String(text).match(/\d{2}\.\d{2}\.\d{4}/g) || [];
+  collect(input);
 
   return {
-    womanDate: dates[0] || "",
-    manDate: dates[1] || ""
+    womanDate: values[0] || "",
+    manDate: values[1] || ""
   };
 }
 
 export default {
   async fetch(request) {
-    const headers = {
-      "Content-Type": "application/json; charset=utf-8",
+    const cors = {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type"
     };
 
     const json = (data, status = 200) =>
-      new Response(JSON.stringify(data), { status, headers });
+      new Response(JSON.stringify(data), {
+        status,
+        headers: {
+          ...cors,
+          "Content-Type": "application/json; charset=utf-8"
+        }
+      });
 
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers });
+      return new Response(null, {
+        status: 204,
+        headers: cors
+      });
     }
 
     if (request.method === "GET") {
       return json({
         ok: true,
         version: VERSION,
-        message: "Отправьте POST с датами рождения женщины и мужчины.",
-        example: {
-          womanDate: "14.05.1992",
-          manDate: "23.08.1989"
-        }
+        message: "Отправьте две даты рождения через пробел в формате ДД.ММ.ГГГГ.",
+        example: "09.06.1979 29.11.1974"
       });
     }
 
@@ -275,15 +262,21 @@ export default {
     let body;
 
     try {
-      body = await request.json();
+      const raw = await request.text();
+
+      try {
+        body = JSON.parse(raw);
+      } catch {
+        body = raw;
+      }
     } catch {
       return json({
         ok: false,
-        error: "Не удалось прочитать JSON."
+        error: "Не удалось прочитать тело запроса."
       }, 400);
     }
 
-    const { womanDate, manDate } = getDates(body);
+    const { womanDate, manDate } = extractDates(body);
     const parsedWoman = parseDate(womanDate);
     const parsedMan = parseDate(manDate);
 
@@ -291,7 +284,8 @@ export default {
       return json({
         ok: false,
         error: "Укажите две корректные даты в формате ДД.ММ.ГГГГ.",
-        example: "14.05.1992 23.08.1989"
+        received: { womanDate, manDate },
+        example: "09.06.1979 29.11.1974"
       }, 400);
     }
 
