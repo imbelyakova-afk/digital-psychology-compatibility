@@ -1,5 +1,5 @@
 
-const VERSION = "5.3";
+const VERSION = "5.4";
 
 const HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
@@ -104,6 +104,7 @@ function parseNumber(value) {
     return null;
   }
 
+  // Поддерживаем числа 2 и строковые значения "2".
   const number = Number(value);
 
   if (!Number.isInteger(number) || number < 1 || number > 9) {
@@ -113,49 +114,127 @@ function parseNumber(value) {
   return number;
 }
 
-// Извлекает числа из ответа первого API.
+// Извлекает четыре числа из разных форматов ответа первого API.
 function getPairSource(body) {
-  let result = body.api_result ?? body;
+  const result =
+    body?.api_result ??
+    body?.apiResult ??
+    body?.decoding_result ??
+    body?.result ??
+    body;
 
-  if (result && typeof result === "object") {
-    if (result.pair) return result.pair;
-    if (result.variable_set) return result.variable_set;
-    return result;
+  function readObject(obj) {
+    if (!obj || typeof obj !== "object") return null;
+
+    if (obj.pair && typeof obj.pair === "object") {
+      return obj.pair;
+    }
+
+    if (obj.variable_set && typeof obj.variable_set === "object") {
+      return obj.variable_set;
+    }
+
+    if (obj.numbers && typeof obj.numbers === "object") {
+      return obj.numbers;
+    }
+
+    if (
+      obj.consciousness !== undefined ||
+      obj.realization !== undefined ||
+      obj.mission !== undefined ||
+      obj.finalNumber !== undefined ||
+      obj.final_number !== undefined ||
+      obj.final !== undefined
+    ) {
+      return obj;
+    }
+
+    return null;
   }
 
-  if (typeof result !== "string") {
-    return body.pair || body;
-  }
+  function readText(text) {
+    if (typeof text !== "string") return null;
 
-  try {
-    const parsed = JSON.parse(result);
+    const current = text.trim();
 
-    if (parsed.pair) return parsed.pair;
-    if (parsed.variable_set) return parsed.variable_set;
+    // Сначала пробуем стандартный JSON.
+    try {
+      const parsed = JSON.parse(current);
+      const found = readObject(parsed);
 
-    return parsed;
-  } catch (_) {
-    // Переходим к разбору строкового представления объекта.
-  }
+      if (found) return found;
 
-  // Ответ может содержать одинарные кавычки:
-  // {'pair': {'consciousness': 2, ...}}
-  const pairMatch = result.match(
-    /['"]pair['"]\s*:\s*\{([^}]*)\}/
-  );
+      if (typeof parsed === "string") {
+        const nested = readText(parsed);
+        if (nested) return nested;
+      }
+    } catch (_) {
+      // Продолжаем разбор строки, если это не стандартный JSON.
+    }
 
-  if (pairMatch) {
-    const pairText = pairMatch[1];
+    // Ищем pair, variable_set или numbers внутри строкового объекта.
+    function extractSection(name) {
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-    function readNumber(keys) {
-      for (const key of keys) {
+      const re = new RegExp(
+        "['\"]" + escaped + "['\"]\\s*:\\s*\\{"
+      );
+
+      const match = re.exec(current);
+      if (!match) return null;
+
+      const start = match.index + match[0].length;
+      let depth = 1;
+      let quote = null;
+      let escapedChar = false;
+
+      for (let i = start; i < current.length; i++) {
+        const ch = current[i];
+
+        if (escapedChar) {
+          escapedChar = false;
+          continue;
+        }
+
+        if (ch === "\\") {
+          escapedChar = true;
+          continue;
+        }
+
+        if (quote) {
+          if (ch === quote) quote = null;
+          continue;
+        }
+
+        if (ch === "'" || ch === '"') {
+          quote = ch;
+          continue;
+        }
+
+        if (ch === "{") depth++;
+
+        if (ch === "}") {
+          depth--;
+
+          if (depth === 0) {
+            return current.slice(start, i);
+          }
+        }
+      }
+
+      return null;
+    }
+
+    function readField(source, aliases) {
+      for (const key of aliases) {
         const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
         const re = new RegExp(
           "['\"]" + escaped +
           "['\"]\\s*:\\s*['\"]?([1-9])['\"]?"
         );
 
-        const match = pairText.match(re);
+        const match = source.match(re);
 
         if (match) return Number(match[1]);
       }
@@ -163,20 +242,51 @@ function getPairSource(body) {
       return null;
     }
 
-    return {
-      consciousness: readNumber(["consciousness"]),
-      realization: readNumber(["realization"]),
-      mission: readNumber(["mission"]),
-      finalNumber: readNumber([
+    for (const sectionName of ["pair", "variable_set", "numbers"]) {
+      const section = extractSection(sectionName);
+
+      if (section !== null) {
+        const found = {
+          consciousness: readField(section, ["consciousness"]),
+          realization: readField(section, ["realization"]),
+          mission: readField(section, ["mission"]),
+          finalNumber: readField(section, [
+            "finalNumber",
+            "final_number",
+            "final"
+          ])
+        };
+
+        if (Object.values(found).every(value => value !== null)) {
+          return found;
+        }
+      }
+    }
+
+    // Последняя попытка: четыре числа на верхнем уровне.
+    const direct = {
+      consciousness: readField(current, ["consciousness"]),
+      realization: readField(current, ["realization"]),
+      mission: readField(current, ["mission"]),
+      finalNumber: readField(current, [
         "finalNumber",
         "final_number",
         "final"
       ])
     };
+
+    if (Object.values(direct).every(value => value !== null)) {
+      return direct;
+    }
+
+    return null;
   }
 
-  // Если передали старый формат — используем его.
-  return body.pair || body;
+  if (typeof result === "string") {
+    return readText(result) || {};
+  }
+
+  return readObject(result) || {};
 }
 
 function buildReport(body) {
@@ -199,8 +309,10 @@ function buildReport(body) {
 
   if (missing.length > 0) {
     throw new Error(
-      "Не удалось получить четыре числа пары из api_result. " +
-      "Проверьте поля consciousness, realization, mission и final."
+      "Не удалось получить четыре числа пары. " +
+      "Worker принимает числа из pair, variable_set или api_result. " +
+      "Ожидаются consciousness, realization, mission и final/finalNumber. " +
+      "Полученный источник не содержит все четыре корректных значения."
     );
   }
 
@@ -298,6 +410,7 @@ export default {
     if (request.method !== "POST") {
       return reply({
         ok: false,
+        version: VERSION,
         error: "Используйте POST-запрос с результатом расчёта совместимости."
       }, 405);
     }
