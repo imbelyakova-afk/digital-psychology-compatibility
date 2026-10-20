@@ -1,5 +1,5 @@
 
-const VERSION = "1.1";
+const VERSION = "1.2";
 
 const HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
@@ -7,6 +7,13 @@ const HEADERS = {
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type"
 };
+
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: HEADERS
+  });
+}
 
 function reduceNumber(n) {
   n = Math.abs(Number(n) || 0);
@@ -150,13 +157,6 @@ function calculate(womanDateText, manDateText) {
   };
 }
 
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: HEADERS
-  });
-}
-
 export default {
   async fetch(request) {
     if (request.method === "OPTIONS") {
@@ -212,11 +212,23 @@ export default {
       return json({
         ok: true,
         version: VERSION,
+
         text: result.text,
+
         dates: result.dates,
+
         pair: result.pair,
-        individual: result.individual
+
+        individual: result.individual,
+
+        variable_set: {
+          consciousness: String(result.pair.consciousness),
+          realization: String(result.pair.realization),
+          mission: String(result.pair.mission),
+          finalNumber: String(result.pair.final)
+        }
       });
+
     } catch (error) {
       return json({
         ok: false,
