@@ -343,10 +343,30 @@ export default {
         body.manDate ??
         body.man_date;
 
-      const calculation = calculate(
-        womanDate,
-        manDate
-      );
+      let calculation;
+
+if (body.womanDate && body.manDate) {
+  calculation = calculate(
+    body.womanDate,
+    body.manDate
+  );
+} else if (body.text) {
+  const dates = String(body.text).match(
+    /\b\d{2}\.\d{2}\.\d{4}\b/g
+  ) || [];
+
+  if (dates.length !== 2) {
+    throw new Error(
+      "Введите две даты в формате ДД.ММ.ГГГГ через пробел."
+    );
+  }
+
+  calculation = calculate(dates[0], dates[1]);
+} else {
+  throw new Error(
+    "Не получены даты рождения партнёров."
+  );
+}
 
       const report = buildReport(calculation);
 
