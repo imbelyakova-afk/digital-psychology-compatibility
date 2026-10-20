@@ -332,66 +332,33 @@ export default {
       }, 405);
     }
 
-    try {
+        try {
       const body = await request.json();
-
-if (body.text) {
-  const dates = String(body.text).match(
-    /\b\d{2}\.\d{2}\.\d{4}\b/g
-  ) || [];
-
-  if (dates.length !== 2) {
-    throw new Error(
-      "Получен текст, но не удалось найти две даты: " + body.text
-    );
-  }
-
-  const calculation = calculate(dates[0], dates[1]);
-  const report = buildReport(calculation);
-
-  return reply({
-    ok: true,
-    version: VERSION,
-    text: report.text,
-    dates: calculation.dates,
-    pair: calculation.pair,
-    individual: calculation.individual,
-    numbers: report.numbers
-  });
-}
-
-      const womanDate =
-        body.womanDate ??
-        body.woman_date;
-
-      const manDate =
-        body.manDate ??
-        body.man_date;
 
       let calculation;
 
-if (body.womanDate && body.manDate) {
-  calculation = calculate(
-    body.womanDate,
-    body.manDate
-  );
-} else if (body.text) {
-  const dates = String(body.text).match(
-    /\b\d{2}\.\d{2}\.\d{4}\b/g
-  ) || [];
+      if (body.text) {
+        const dates = String(body.text).match(
+          /\b\d{2}\.\d{2}\.\d{4}\b/g
+        ) || [];
 
-  if (dates.length !== 2) {
-    throw new Error(
-      "Введите две даты в формате ДД.ММ.ГГГГ через пробел."
-    );
-  }
+        if (dates.length !== 2) {
+          throw new Error(
+            "В результате первого API не найдены две даты рождения."
+          );
+        }
 
-  calculation = calculate(dates[0], dates[1]);
-} else {
-  throw new Error(
-    "Не получены даты рождения партнёров."
-  );
-}
+        calculation = calculate(dates[0], dates[1]);
+      } else if (body.womanDate && body.manDate) {
+        calculation = calculate(
+          body.womanDate,
+          body.manDate
+        );
+      } else {
+        throw new Error(
+          "Второй API не получил результат первого API. Проверьте Body: {\"text\":\"{{api_result}}\"}."
+        );
+      }
 
       const report = buildReport(calculation);
 
