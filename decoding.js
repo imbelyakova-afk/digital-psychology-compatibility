@@ -85,17 +85,14 @@ const POS = {
     "1. СОЗНАНИЕ ПАРЫ",
     "Первое впечатление друг о друге, повседневное общение, эмоциональные реакции и то, как партнёры воспринимают происходящее между ними."
   ],
-
   realization: [
     "2. РЕАЛИЗАЦИЯ ПАРЫ",
     "Совместные действия, решение бытовых и практических задач, распределение ответственности, достижение целей и воплощение общих планов."
   ],
-
   mission: [
     "3. МИССИЯ ПАРЫ",
     "Общий вектор развития отношений, ценности, жизненные уроки и направления, в которых партнёры могут расти вместе."
   ],
-
   finalNumber: [
     "4. ИТОГОВОЕ ЧИСЛО ПАРЫ",
     "Обобщённая тема союза: что помогает отношениям укрепляться, какие особенности важно осознавать и чему партнёры могут научиться друг у друга."
@@ -103,7 +100,9 @@ const POS = {
 };
 
 function parseNumber(value) {
-  if (value === undefined || value === null || value === "") return null;
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
 
   const number = Number(value);
 
@@ -114,75 +113,94 @@ function parseNumber(value) {
   return number;
 }
 
-function isObject(value) {
-  return value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value);
-}
+// Извлекает числа из ответа первого API.
+function getPairSource(body) {
+  let result = body.api_result ?? body;
 
-// Ищет четыре числа в типичных форматах ответа первого API
-// и в переменных конструктора бота.
-function findNumberSource(body) {
-  const candidates = [
-    body,
-    body?.pair,
-    body?.variable_set,
-    body?.api_result,
-    body?.api_result?.pair,
-    body?.api_result?.variable_set,
-    body?.decoding_result,
-    body?.decoding_result?.pair,
-    body?.decoding_result?.variable_set,
-    body?.result,
-    body?.result?.pair,
-    body?.result?.variable_set,
-    body?.data,
-    body?.data?.pair,
-    body?.data?.variable_set,
-    body?.numbers,
-    body?.variables
-  ];
-
-  for (const candidate of candidates) {
-    if (!isObject(candidate)) continue;
-
-    const consciousness = parseNumber(candidate.consciousness);
-    const realization = parseNumber(candidate.realization);
-    const mission = parseNumber(candidate.mission);
-
-    const finalNumber = parseNumber(
-      candidate.finalNumber ??
-      candidate.final ??
-      candidate.final_number ??
-      candidate.finalnumber
-    );
-
-    if (
-      consciousness !== null &&
-      realization !== null &&
-      mission !== null &&
-      finalNumber !== null
-    ) {
-      return {
-        consciousness,
-        realization,
-        mission,
-        finalNumber
-      };
-    }
+  if (result && typeof result === "object") {
+    if (result.pair) return result.pair;
+    if (result.variable_set) return result.variable_set;
+    return result;
   }
 
-  return null;
+  if (typeof result !== "string") {
+    return body.pair || body;
+  }
+
+  try {
+    const parsed = JSON.parse(result);
+
+    if (parsed.pair) return parsed.pair;
+    if (parsed.variable_set) return parsed.variable_set;
+
+    return parsed;
+  } catch (_) {
+    // Переходим к разбору строкового представления объекта.
+  }
+
+  // Ответ может содержать одинарные кавычки:
+  // {'pair': {'consciousness': 2, ...}}
+  const pairMatch = result.match(
+    /['"]pair['"]\s*:\s*\{([^}]*)\}/
+  );
+
+  if (pairMatch) {
+    const pairText = pairMatch[1];
+
+    function readNumber(keys) {
+      for (const key of keys) {
+        const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const re = new RegExp(
+          "['\"]" + escaped +
+          "['\"]\\s*:\\s*['\"]?([1-9])['\"]?"
+        );
+
+        const match = pairText.match(re);
+
+        if (match) return Number(match[1]);
+      }
+
+      return null;
+    }
+
+    return {
+      consciousness: readNumber(["consciousness"]),
+      realization: readNumber(["realization"]),
+      mission: readNumber(["mission"]),
+      finalNumber: readNumber([
+        "finalNumber",
+        "final_number",
+        "final"
+      ])
+    };
+  }
+
+  // Если передали старый формат — используем его.
+  return body.pair || body;
 }
 
 function buildReport(body) {
-  const numbers = findNumberSource(body);
+  const source = getPairSource(body);
 
-  if (!numbers) {
+  const numbers = {
+    consciousness: parseNumber(source.consciousness),
+    realization: parseNumber(source.realization),
+    mission: parseNumber(source.mission),
+    finalNumber: parseNumber(
+      source.finalNumber ??
+      source.final ??
+      source.final_number
+    )
+  };
+
+  const missing = Object.entries(numbers)
+    .filter(([, value]) => value === null)
+    .map(([key]) => key);
+
+  if (missing.length > 0) {
     throw new Error(
-      "Не удалось найти четыре числа (consciousness, realization, mission, finalNumber). " +
-      "Передайте их в Body JSON второго API на верхнем уровне: " +
-      '{"consciousness":2,"realization":3,"mission":5,"finalNumber":1}.'
+      "Не удалось получить четыре числа пары из api_result. " +
+      "Проверьте поля consciousness, realization, mission и final."
     );
   }
 
@@ -209,17 +227,17 @@ function buildReport(body) {
     ].join("\n");
   });
 
-  const strengths = Object.values(numbers).map(
-    number => M[number].title
-  );
+  const strengths = [];
+  const challenges = [];
+  const recommendations = [];
 
-  const challenges = Object.values(numbers).map(
-    number => M[number].minus
-  );
+  for (const number of Object.values(numbers)) {
+    const meaning = M[number];
 
-  const recommendations = Object.values(numbers).map(
-    number => M[number].advice
-  );
+    strengths.push(meaning.title);
+    challenges.push(meaning.minus);
+    recommendations.push(meaning.advice);
+  }
 
   const text = [
     "🔮 ПОДРОБНАЯ РАСШИФРОВКА СОВМЕСТИМОСТИ",
@@ -244,15 +262,11 @@ function buildReport(body) {
     "",
     "НА ЧТО ОБРАТИТЬ ВНИМАНИЕ",
     "",
-    ...challenges.map(
-      (item, index) => `${index + 1}. ${item}`
-    ),
+    ...challenges.map((item, index) => `${index + 1}. ${item}`),
     "",
     "ЧТО ПОМОЖЕТ УКРЕПИТЬ ОТНОШЕНИЯ",
     "",
-    ...recommendations.map(
-      (item, index) => `${index + 1}. ${item}`
-    ),
+    ...recommendations.map((item, index) => `${index + 1}. ${item}`),
     "",
     "Главный ориентир — не пытаться переделать друг друга под идеальную схему, а использовать понимание своих особенностей для более открытого общения, взаимной поддержки и осознанных решений."
   ].join("\n");
@@ -277,15 +291,14 @@ export default {
         ok: true,
         service: "compatibility-decoding",
         version: VERSION,
-        message: "Отправьте POST JSON с четырьмя числами пары."
+        message: "Отправьте POST JSON с четырьмя числами пары или api_result."
       });
     }
 
     if (request.method !== "POST") {
       return reply({
         ok: false,
-        version: VERSION,
-        error: "Используйте POST-запрос с четырьмя готовыми числами."
+        error: "Используйте POST-запрос с результатом расчёта совместимости."
       }, 405);
     }
 
@@ -303,7 +316,8 @@ export default {
       return reply({
         ok: false,
         version: VERSION,
-        error: error.message || "Не удалось сформировать расшифровку."
+        error: error.message ||
+          "Не удалось сформировать расшифровку."
       }, 400);
     }
   }
