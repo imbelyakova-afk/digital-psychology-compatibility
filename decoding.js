@@ -1,5 +1,4 @@
-
-const VERSION = "5.4";
+const VERSION = "5.5";
 
 const HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
@@ -13,6 +12,82 @@ function reply(data, status = 200) {
     status,
     headers: HEADERS
   });
+}
+
+function reduceNumber(n) {
+  n = Math.abs(Number(n) || 0);
+
+  while (n > 9) {
+    n = String(n)
+      .split("")
+      .reduce((sum, digit) => sum + Number(digit), 0);
+  }
+
+  return n;
+}
+
+function parseDate(value) {
+  const match = String(value || "").match(
+    /^\s*(\d{2})\.(\d{2})\.(\d{4})\s*$/
+  );
+
+  if (!match) return null;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day ||
+    year < 1
+  ) {
+    return null;
+  }
+
+  return {
+    formatted: `${match[1]}.${match[2]}.${match[3]}`,
+    day,
+    month,
+    year
+  };
+}
+
+function getNumbers(dateText) {
+  const date = parseDate(dateText);
+
+  if (!date) {
+    throw new Error(
+      `Некорректная дата: ${dateText}. Используйте ДД.ММ.ГГГГ.`
+    );
+  }
+
+  const { day, month, year } = date;
+  const consciousness = reduceNumber(day);
+
+  const dateDigitsSum = (
+    String(day) +
+    String(month).padStart(2, "0") +
+    String(year)
+  )
+    .split("")
+    .reduce((sum, digit) => sum + Number(digit), 0);
+
+  const realization = reduceNumber(dateDigitsSum);
+  const mission = reduceNumber(consciousness + realization);
+  const final = reduceNumber(
+    consciousness + realization + mission
+  );
+
+  return {
+    consciousness,
+    realization,
+    mission,
+    final
+  };
 }
 
 const M = {
@@ -99,262 +174,104 @@ const POS = {
   ]
 };
 
-function parseNumber(value) {
-  if (value === undefined || value === null || value === "") {
-    return null;
-  }
+function calculate(womanDateText, manDateText) {
+  const womanDate = parseDate(womanDateText);
+  const manDate = parseDate(manDateText);
 
-  // Поддерживаем числа 2 и строковые значения "2".
-  const number = Number(value);
-
-  if (!Number.isInteger(number) || number < 1 || number > 9) {
-    return null;
-  }
-
-  return number;
-}
-
-// Извлекает четыре числа из разных форматов ответа первого API.
-function getPairSource(body) {
-  const result =
-    body?.api_result ??
-    body?.apiResult ??
-    body?.decoding_result ??
-    body?.result ??
-    body;
-
-  function readObject(obj) {
-    if (!obj || typeof obj !== "object") return null;
-
-    if (obj.pair && typeof obj.pair === "object") {
-      return obj.pair;
-    }
-
-    if (obj.variable_set && typeof obj.variable_set === "object") {
-      return obj.variable_set;
-    }
-
-    if (obj.numbers && typeof obj.numbers === "object") {
-      return obj.numbers;
-    }
-
-    if (
-      obj.consciousness !== undefined ||
-      obj.realization !== undefined ||
-      obj.mission !== undefined ||
-      obj.finalNumber !== undefined ||
-      obj.final_number !== undefined ||
-      obj.final !== undefined
-    ) {
-      return obj;
-    }
-
-    return null;
-  }
-
-  function readText(text) {
-    if (typeof text !== "string") return null;
-
-    const current = text.trim();
-
-    // Сначала пробуем стандартный JSON.
-    try {
-      const parsed = JSON.parse(current);
-      const found = readObject(parsed);
-
-      if (found) return found;
-
-      if (typeof parsed === "string") {
-        const nested = readText(parsed);
-        if (nested) return nested;
-      }
-    } catch (_) {
-      // Продолжаем разбор строки, если это не стандартный JSON.
-    }
-
-    // Ищем pair, variable_set или numbers внутри строкового объекта.
-    function extractSection(name) {
-      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-      const re = new RegExp(
-        "['\"]" + escaped + "['\"]\\s*:\\s*\\{"
-      );
-
-      const match = re.exec(current);
-      if (!match) return null;
-
-      const start = match.index + match[0].length;
-      let depth = 1;
-      let quote = null;
-      let escapedChar = false;
-
-      for (let i = start; i < current.length; i++) {
-        const ch = current[i];
-
-        if (escapedChar) {
-          escapedChar = false;
-          continue;
-        }
-
-        if (ch === "\\") {
-          escapedChar = true;
-          continue;
-        }
-
-        if (quote) {
-          if (ch === quote) quote = null;
-          continue;
-        }
-
-        if (ch === "'" || ch === '"') {
-          quote = ch;
-          continue;
-        }
-
-        if (ch === "{") depth++;
-
-        if (ch === "}") {
-          depth--;
-
-          if (depth === 0) {
-            return current.slice(start, i);
-          }
-        }
-      }
-
-      return null;
-    }
-
-    function readField(source, aliases) {
-      for (const key of aliases) {
-        const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-        const re = new RegExp(
-          "['\"]" + escaped +
-          "['\"]\\s*:\\s*['\"]?([1-9])['\"]?"
-        );
-
-        const match = source.match(re);
-
-        if (match) return Number(match[1]);
-      }
-
-      return null;
-    }
-
-    for (const sectionName of ["pair", "variable_set", "numbers"]) {
-      const section = extractSection(sectionName);
-
-      if (section !== null) {
-        const found = {
-          consciousness: readField(section, ["consciousness"]),
-          realization: readField(section, ["realization"]),
-          mission: readField(section, ["mission"]),
-          finalNumber: readField(section, [
-            "finalNumber",
-            "final_number",
-            "final"
-          ])
-        };
-
-        if (Object.values(found).every(value => value !== null)) {
-          return found;
-        }
-      }
-    }
-
-    // Последняя попытка: четыре числа на верхнем уровне.
-    const direct = {
-      consciousness: readField(current, ["consciousness"]),
-      realization: readField(current, ["realization"]),
-      mission: readField(current, ["mission"]),
-      finalNumber: readField(current, [
-        "finalNumber",
-        "final_number",
-        "final"
-      ])
-    };
-
-    if (Object.values(direct).every(value => value !== null)) {
-      return direct;
-    }
-
-    return null;
-  }
-
-  if (typeof result === "string") {
-    return readText(result) || {};
-  }
-
-  return readObject(result) || {};
-}
-
-function buildReport(body) {
-  const source = getPairSource(body);
-
-  const numbers = {
-    consciousness: parseNumber(source.consciousness),
-    realization: parseNumber(source.realization),
-    mission: parseNumber(source.mission),
-    finalNumber: parseNumber(
-      source.finalNumber ??
-      source.final ??
-      source.final_number
-    )
-  };
-
-  const missing = Object.entries(numbers)
-    .filter(([, value]) => value === null)
-    .map(([key]) => key);
-
-  if (missing.length > 0) {
+  if (!womanDate || !manDate) {
     throw new Error(
-      "Не удалось получить четыре числа пары. " +
-      "Worker принимает числа из pair, variable_set или api_result. " +
-      "Ожидаются consciousness, realization, mission и final/finalNumber. " +
-      "Полученный источник не содержит все четыре корректных значения."
+      "Укажите две корректные даты в формате ДД.ММ.ГГГГ."
     );
   }
 
-  const sections = Object.entries(numbers).map(([key, number]) => {
-    const [position, description] = POS[key];
-    const meaning = M[number];
+  const woman = getNumbers(womanDate.formatted);
+  const man = getNumbers(manDate.formatted);
 
-    return [
-      position,
-      "",
-      `Число: ${number} — ${meaning.title}`,
-      "",
-      "Что означает эта позиция:",
-      description,
-      "",
-      "СИЛЬНЫЕ СТОРОНЫ ПАРЫ",
-      meaning.plus,
-      "",
-      "ВОЗМОЖНЫЕ ТРУДНОСТИ",
-      meaning.minus,
-      "",
-      "ПРАКТИЧЕСКИЕ РЕКОМЕНДАЦИИ",
-      meaning.advice
-    ].join("\n");
-  });
+  const pair = {
+    consciousness: reduceNumber(
+      woman.consciousness + man.consciousness
+    ),
+    realization: reduceNumber(
+      woman.realization + man.realization
+    ),
+    mission: reduceNumber(
+      woman.mission + man.mission
+    )
+  };
 
-  const strengths = [];
-  const challenges = [];
-  const recommendations = [];
+  pair.final = reduceNumber(
+    pair.consciousness +
+    pair.realization +
+    pair.mission
+  );
 
-  for (const number of Object.values(numbers)) {
-    const meaning = M[number];
+  return {
+    dates: {
+      woman: womanDate.formatted,
+      man: manDate.formatted
+    },
+    pair,
+    individual: { woman, man }
+  };
+}
 
-    strengths.push(meaning.title);
-    challenges.push(meaning.minus);
-    recommendations.push(meaning.advice);
-  }
+function buildReport(calculation) {
+  const numbers = {
+    consciousness: calculation.pair.consciousness,
+    realization: calculation.pair.realization,
+    mission: calculation.pair.mission,
+    finalNumber: calculation.pair.final
+  };
+
+  const sections = Object.entries(numbers).map(
+    ([key, number]) => {
+      const [position, description] = POS[key];
+      const meaning = M[number];
+
+      return [
+        position,
+        "",
+        `Число: ${number} — ${meaning.title}`,
+        "",
+        "Что означает эта позиция:",
+        description,
+        "",
+        "СИЛЬНЫЕ СТОРОНЫ ПАРЫ",
+        meaning.plus,
+        "",
+        "ВОЗМОЖНЫЕ ТРУДНОСТИ",
+        meaning.minus,
+        "",
+        "ПРАКТИЧЕСКИЕ РЕКОМЕНДАЦИИ",
+        meaning.advice
+      ].join("\n");
+    }
+  );
+
+  const titles = Object.values(numbers).map(
+    number => M[number].title
+  );
+
+  const challenges = Object.values(numbers).map(
+    number => M[number].minus
+  );
+
+  const recommendations = Object.values(numbers).map(
+    number => M[number].advice
+  );
 
   const text = [
     "🔮 ПОДРОБНАЯ РАСШИФРОВКА СОВМЕСТИМОСТИ",
     "",
-    "В этой расшифровке используются четыре числа вашей пары, уже рассчитанные предыдущим блоком. Каждое число отвечает за отдельную сторону отношений. Важно рассматривать их вместе: одна и та же особенность может проявляться по-разному в общении, совместных делах и долгосрочном развитии.",
+    `Дата женщины: ${calculation.dates.woman}`,
+    `Дата мужчины: ${calculation.dates.man}`,
+    "",
+    `Сознание: ${numbers.consciousness}`,
+    `Реализация: ${numbers.realization}`,
+    `Миссия: ${numbers.mission}`,
+    `Итог: ${numbers.finalNumber}`,
+    "",
+    "В этой расшифровке используются четыре числа вашей пары. Каждое число описывает отдельную сторону отношений. Рассматривайте их как способ осмыслить отношения, а не как неизменный прогноз.",
     "",
     "════════════════════════",
     "",
@@ -366,27 +283,26 @@ function buildReport(body) {
     ]),
     "ОБЩИЙ ВЫВОД",
     "",
-    `В вашей паре соединяются четыре темы: ${strengths.join(", ")}.`,
+    `В вашей паре соединяются четыре темы: ${titles.join(", ")}.`,
     "",
-    "Каждая из них описывает отдельную сторону взаимодействия. Сильные стороны помогают партнёрам поддерживать связь, а возможные трудности показывают, где особенно важны честный разговор, уважение к границам и готовность договариваться.",
-    "",
-    "Не воспринимайте описания как неизменный прогноз или оценку того, подходят ли люди друг другу. Числа здесь служат способом осмыслить отношения и обсудить привычные модели поведения. Реальное качество союза зависит от решений и поступков обоих партнёров.",
+    "Каждая тема описывает отдельную сторону взаимодействия. Сильные стороны помогают партнёрам поддерживать связь, а возможные трудности показывают, где особенно важны честный разговор, уважение к границам и готовность договариваться.",
     "",
     "НА ЧТО ОБРАТИТЬ ВНИМАНИЕ",
     "",
-    ...challenges.map((item, index) => `${index + 1}. ${item}`),
+    ...challenges.map(
+      (item, index) => `${index + 1}. ${item}`
+    ),
     "",
     "ЧТО ПОМОЖЕТ УКРЕПИТЬ ОТНОШЕНИЯ",
     "",
-    ...recommendations.map((item, index) => `${index + 1}. ${item}`),
+    ...recommendations.map(
+      (item, index) => `${index + 1}. ${item}`
+    ),
     "",
     "Главный ориентир — не пытаться переделать друг друга под идеальную схему, а использовать понимание своих особенностей для более открытого общения, взаимной поддержки и осознанных решений."
   ].join("\n");
 
-  return {
-    text,
-    numbers
-  };
+  return { text, numbers };
 }
 
 export default {
@@ -401,9 +317,10 @@ export default {
     if (request.method === "GET") {
       return reply({
         ok: true,
-        service: "compatibility-decoding",
+        service: "compatibility-calculator-decoding",
         version: VERSION,
-        message: "Отправьте POST JSON с четырьмя числами пары или api_result."
+        message:
+          "Отправьте POST JSON с womanDate и manDate в формате ДД.ММ.ГГГГ."
       });
     }
 
@@ -411,26 +328,47 @@ export default {
       return reply({
         ok: false,
         version: VERSION,
-        error: "Используйте POST-запрос с результатом расчёта совместимости."
+        error: "Используйте POST-запрос."
       }, 405);
     }
 
     try {
       const body = await request.json();
-      const report = buildReport(body);
+
+      const womanDate =
+        body.womanDate ??
+        body.woman_date;
+
+      const manDate =
+        body.manDate ??
+        body.man_date;
+
+      const calculation = calculate(
+        womanDate,
+        manDate
+      );
+
+      const report = buildReport(calculation);
 
       return reply({
         ok: true,
         version: VERSION,
         text: report.text,
+        dates: calculation.dates,
+        pair: calculation.pair,
+        individual: calculation.individual,
         numbers: report.numbers
       });
     } catch (error) {
+      const message =
+        error.message ||
+        "Не удалось выполнить расчёт.";
+
       return reply({
         ok: false,
         version: VERSION,
-        error: error.message ||
-          "Не удалось сформировать расшифровку."
+        error: message,
+        text: message
       }, 400);
     }
   }
