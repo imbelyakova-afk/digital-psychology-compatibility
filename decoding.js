@@ -334,11 +334,6 @@ export default {
 
         try {
       const body = await request.json();
-      return reply({
-  ok: true,
-  debug: true,
-  received: body
-});
 
       let calculation;
 
