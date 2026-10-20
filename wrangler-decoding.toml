@@ -1,0 +1,3 @@
+name = "compatibility-decoding-github"
+main = "decoding.js"
+compatibility_date = "2026-10-18"
