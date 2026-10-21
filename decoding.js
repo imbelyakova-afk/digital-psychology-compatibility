@@ -1,5 +1,5 @@
 
-const VERSION = "7.1";
+const VERSION = "8.0";
 
 const meanings = {
   1: "Лидерство, самостоятельность и инициатива.",
@@ -20,11 +20,31 @@ const labels = {
   final: "Итог"
 };
 
+function getText(body) {
+  const candidates = [
+    body.text,
+    body.api_result,
+    body.apiResult,
+    body.result,
+    body.message,
+    body.api_result?.text,
+    body.result?.text
+  ];
+
+  for (const value of candidates) {
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
 function getNumbers(body) {
-  // Готовые числа в объекте
+  // Если передан готовый объект чисел
   const pair = body.pair || body.numbers || body.variable_set;
 
-  if (pair) {
+  if (pair && typeof pair === "object") {
     const result = {
       consciousness: pair.consciousness,
       realization: pair.realization,
@@ -34,31 +54,28 @@ function getNumbers(body) {
 
     const values = Object.values(result).map(Number);
 
-    if (values.every(n => Number.isInteger(n) && n >= 1 && n <= 9)) {
+    if (values.every(n =>
+      Number.isInteger(n) && n >= 1 && n <= 9
+    )) {
       return {
-        consciousness: values[0],
-        realization: values[1],
-        mission: values[2],
-        final: values[3]
+        consciousness: Number(result.consciousness),
+        realization: Number(result.realization),
+        mission: Number(result.mission),
+        final: Number(result.final)
       };
     }
   }
 
-  // Текст первого API
-  const text = [
-    body.text,
-    body.api_result,
-    body.apiResult,
-    body.result,
-    body.message
-  ].find(value => typeof value === "string");
+  // Извлекаем числа из текста первого API
+  const text = getText(body);
 
   if (!text) return null;
 
   function find(label) {
     const match = text.match(
-      new RegExp(label + "\\s*[:：]\\s*([1-9])", "i")
+      new RegExp(label + "\\s*[:：]\\s*([1-9])(?:\\D|$)", "i")
     );
+
     return match ? Number(match[1]) : null;
   }
 
@@ -75,10 +92,14 @@ function getNumbers(body) {
 }
 
 function makeDescription(numbers) {
-  const lines = ["РАСШИФРОВКА СОВМЕСТИМОСТИ", ""];
+  const lines = [
+    "РАСШИФРОВКА СОВМЕСТИМОСТИ",
+    ""
+  ];
 
   for (const [key, label] of Object.entries(labels)) {
     const number = numbers[key];
+
     lines.push(`${label}: ${number}`);
     lines.push(meanings[number]);
     lines.push("");
@@ -105,13 +126,14 @@ export default {
         ok: true,
         service: "compatibility-calculator-decoding",
         version: VERSION,
-        message: "Передайте POST JSON с текстом первого расчёта."
+        message: "API готов. Передайте текст первого расчёта через POST."
       }), { headers });
     }
 
     if (request.method !== "POST") {
       return new Response(JSON.stringify({
         ok: false,
+        version: VERSION,
         error: "Используйте POST."
       }), { status: 405, headers });
     }
@@ -124,8 +146,9 @@ export default {
         return new Response(JSON.stringify({
           ok: false,
           version: VERSION,
-          error: "Не найдены четыре числа. Передайте текст первого API в поле text.",
-          receivedKeys: Object.keys(body)
+          error: "Не удалось извлечь четыре числа из входных данных.",
+          receivedKeys: Object.keys(body),
+          textReceived: getText(body).slice(0, 250)
         }), { status: 400, headers });
       }
 
@@ -136,7 +159,7 @@ export default {
         numbers
       }), { headers });
 
-    } catch {
+    } catch (error) {
       return new Response(JSON.stringify({
         ok: false,
         version: VERSION,
