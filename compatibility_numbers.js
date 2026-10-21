@@ -193,7 +193,11 @@ export default {
         womanDate = String(body.womanDate).trim();
         manDate = String(body.manDate).trim();
       } else {
-        const dates = extractDates(body.text || "");
+        const inputText = String(
+  body.text || body.user_reply || body.user_input || ""
+);
+
+const dates = extractDates(inputText);
 
         if (dates.length !== 2) {
           return json({
