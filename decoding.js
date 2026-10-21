@@ -1,4 +1,4 @@
-const VERSION = "5.5";
+const VERSION = "6.0";
 
 const HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
@@ -14,128 +14,15 @@ function reply(data, status = 200) {
   });
 }
 
-function reduceNumber(value) {
-  let n = Math.abs(Number(value) || 0);
-
-  while (n > 9) {
-    n = String(n)
-      .split("")
-      .reduce((sum, digit) => sum + Number(digit), 0);
-  }
-
-  return n;
-}
-
-function parseDate(value) {
-  const match = String(value || "").match(
-    /^\s*(\d{2})\.(\d{2})\.(\d{4})\s*$/
-  );
-
-  if (!match) return null;
-
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  const year = Number(match[3]);
-
-  const date = new Date(Date.UTC(year, month - 1, day));
-
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day ||
-    year < 1
-  ) {
-    return null;
-  }
-
-  return {
-    formatted: `${match[1]}.${match[2]}.${match[3]}`,
-    day,
-    month,
-    year
-  };
+function isValidNumber(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 1 && n <= 9;
 }
 
 function extractDates(value) {
   return String(value || "").match(
     /\b\d{2}\.\d{2}\.\d{4}\b/g
   ) || [];
-}
-
-function getNumbers(dateText) {
-  const date = parseDate(dateText);
-
-  if (!date) {
-    throw new Error(
-      `Некорректная дата: ${dateText}. Используйте ДД.ММ.ГГГГ.`
-    );
-  }
-
-  const { day, month, year } = date;
-
-  const consciousness = reduceNumber(day);
-
-  const sum = (
-    String(day) +
-    String(month).padStart(2, "0") +
-    String(year)
-  )
-    .split("")
-    .reduce((total, digit) => total + Number(digit), 0);
-
-  const realization = reduceNumber(sum);
-  const mission = reduceNumber(consciousness + realization);
-  const final = reduceNumber(
-    consciousness + realization + mission
-  );
-
-  return {
-    consciousness,
-    realization,
-    mission,
-    final
-  };
-}
-
-function calculate(womanDateText, manDateText) {
-  const womanDate = parseDate(womanDateText);
-  const manDate = parseDate(manDateText);
-
-  if (!womanDate || !manDate) {
-    throw new Error(
-      "Нужно передать две корректные даты в формате ДД.ММ.ГГГГ."
-    );
-  }
-
-  const woman = getNumbers(womanDate.formatted);
-  const man = getNumbers(manDate.formatted);
-
-  const pair = {
-    consciousness: reduceNumber(
-      woman.consciousness + man.consciousness
-    ),
-    realization: reduceNumber(
-      woman.realization + man.realization
-    ),
-    mission: reduceNumber(
-      woman.mission + man.mission
-    )
-  };
-
-  pair.final = reduceNumber(
-    pair.consciousness +
-    pair.realization +
-    pair.mission
-  );
-
-  return {
-    dates: {
-      woman: womanDate.formatted,
-      man: manDate.formatted
-    },
-    pair,
-    individual: { woman, man }
-  };
 }
 
 const M = {
@@ -222,45 +109,142 @@ const POS = {
   ]
 };
 
-function calculate(womanDateText, manDateText) {
-  const womanDate = parseDate(womanDateText);
-  const manDate = parseDate(manDateText);
-
-  if (!womanDate || !manDate) {
-    throw new Error(
-      "Укажите две корректные даты в формате ДД.ММ.ГГГГ."
-    );
+function getRequestData(body) {
+  if (!body || typeof body !== "object") {
+    throw new Error("Ожидался JSON с результатом первого API.");
   }
 
-  const woman = getNumbers(womanDate.formatted);
-  const man = getNumbers(manDate.formatted);
+  // Вариант 1: первый API передал готовый объект pair.
+  const sources = [
+    body.pair,
+    body.variable_set,
+    body.numbers,
+    body
+  ];
 
-  const pair = {
-    consciousness: reduceNumber(
-      woman.consciousness + man.consciousness
-    ),
-    realization: reduceNumber(
-      woman.realization + man.realization
-    ),
-    mission: reduceNumber(
-      woman.mission + man.mission
-    )
-  };
+  for (const source of sources) {
+    if (!source || typeof source !== "object") continue;
 
-  pair.final = reduceNumber(
-    pair.consciousness +
-    pair.realization +
-    pair.mission
+    const consciousness = Number(source.consciousness);
+    const realization = Number(source.realization);
+    const mission = Number(source.mission);
+
+    const finalNumber = Number(
+      source.finalNumber ??
+      source.final_number ??
+      source.final
+    );
+
+    if (
+      [
+        consciousness,
+        realization,
+        mission,
+        finalNumber
+      ].every(isValidNumber)
+    ) {
+      return {
+        dates: {
+          woman: body.dates?.woman ?? "Не указана",
+          man: body.dates?.man ?? "Не указана"
+        },
+        pair: {
+          consciousness,
+          realization,
+          mission,
+          final: finalNumber
+        }
+      };
+    }
+  }
+
+  // Вариант 2: первый API передал текст с расчётом.
+  const textParts = [
+    body.text,
+    body.api_result,
+    body.apiResult,
+    body.result,
+    body.message
+  ];
+
+  for (const part of textParts) {
+    if (typeof part !== "string") continue;
+
+    // Иногда JSON-ответ приходит внутри строковой переменной.
+    try {
+      const parsed = JSON.parse(part);
+
+      if (parsed && typeof parsed === "object") {
+        try {
+          return getRequestData(parsed);
+        } catch (_) {
+          // Если внутри JSON нет чисел, проверим обычный текст.
+        }
+      }
+    } catch (_) {
+      // Это может быть обычный текст, а не JSON.
+    }
+
+    const consciousnessMatch = part.match(
+      /Сознание\s*:\s*(\d+)/i
+    );
+    const realizationMatch = part.match(
+      /Реализация\s*:\s*(\d+)/i
+    );
+    const missionMatch = part.match(
+      /Миссия\s*:\s*(\d+)/i
+    );
+    const finalMatch = part.match(
+      /Итог(?:овое число)?\s*:\s*(\d+)/i
+    );
+
+    if (
+      consciousnessMatch &&
+      realizationMatch &&
+      missionMatch &&
+      finalMatch
+    ) {
+      const numbers = [
+        Number(consciousnessMatch[1]),
+        Number(realizationMatch[1]),
+        Number(missionMatch[1]),
+        Number(finalMatch[1])
+      ];
+
+      if (!numbers.every(isValidNumber)) {
+        continue;
+      }
+
+      const dates = extractDates(part);
+
+      return {
+        dates: {
+          woman: dates[0] ?? "Не указана",
+          man: dates[1] ?? "Не указана"
+        },
+        pair: {
+          consciousness: numbers[0],
+          realization: numbers[1],
+          mission: numbers[2],
+          final: numbers[3]
+        }
+      };
+    }
+  }
+
+  // Вариант 3: текстовый блок передал JSON первого API целиком.
+  if (typeof body.text === "string") {
+    try {
+      const parsed = JSON.parse(body.text);
+      return getRequestData(parsed);
+    } catch (_) {
+      // Понятная ошибка будет выдана ниже.
+    }
+  }
+
+  throw new Error(
+    "Не найдены четыре числа первого расчёта. Передайте текст первого API в поле text или JSON с объектом pair."
   );
-
-  return {
-    dates: {
-      woman: womanDate.formatted,
-      man: manDate.formatted
-    },
-    pair,
-    individual: { woman, man }
-  };
 }
 
 function buildReport(calculation) {
@@ -333,110 +317,6 @@ function buildReport(calculation) {
   return { text, numbers };
 }
 
-function getRequestData(body) {
-  // 1. Прямые даты из JSON.
-  const womanDate =
-    body.womanDate ??
-    body.woman_date ??
-    body.woman ??
-    null;
-
-  const manDate =
-    body.manDate ??
-    body.man_date ??
-    body.man ??
-    null;
-
-  if (womanDate && manDate) {
-    return calculate(womanDate, manDate);
-  }
-
-  // 2. Готовые четыре числа.
-  const source =
-    body.pair ??
-    body.variable_set ??
-    body.numbers ??
-    body;
-
-  const consciousness = Number(source.consciousness);
-  const realization = Number(source.realization);
-  const mission = Number(source.mission);
-  const finalNumber = Number(
-    source.finalNumber ??
-    source.final_number ??
-    source.final
-  );
-
-  if (
-    [consciousness, realization, mission, finalNumber].every(
-      n => Number.isInteger(n) && n >= 1 && n <= 9
-    )
-  ) {
-    return {
-      dates: {
-        woman: body.dates?.woman ?? "Не указана",
-        man: body.dates?.man ?? "Не указана"
-      },
-      pair: {
-        consciousness,
-        realization,
-        mission,
-        final: finalNumber
-      },
-      individual: null
-    };
-  }
-
-  // 3. Извлекаем даты из текста, включая ответ первого API.
-  const textParts = [
-    body.text,
-    body.api_result,
-    body.apiResult,
-    body.result,
-    body.message
-  ];
-
-  for (const part of textParts) {
-    if (typeof part !== "string") continue;
-
-    // Сначала ищем даты в обычном тексте.
-    const dates = extractDates(part);
-
-    if (dates.length === 2) {
-      return calculate(dates[0], dates[1]);
-    }
-
-    // Если это JSON, пробуем извлечь даты из вложенных полей.
-    try {
-      const parsed = JSON.parse(part);
-
-      if (parsed && typeof parsed === "object") {
-        const nested = getRequestData(parsed);
-
-        if (nested) return nested;
-      }
-    } catch (_) {
-      // Строка может быть не JSON — продолжаем проверку.
-    }
-
-    // Поддержка строкового представления объекта с одинарными кавычками.
-    const womanMatch = part.match(
-      /Дата женщины\s*:\s*(\d{2}\.\d{2}\.\d{4})/i
-    );
-    const manMatch = part.match(
-      /Дата мужчины\s*:\s*(\d{2}\.\d{2}\.\d{4})/i
-    );
-
-    if (womanMatch && manMatch) {
-      return calculate(womanMatch[1], manMatch[1]);
-    }
-  }
-
-  throw new Error(
-    "Не удалось получить данные для расшифровки. Передайте две даты рождения или четыре числа пары."
-  );
-}
-
 export default {
   async fetch(request) {
     if (request.method === "OPTIONS") {
@@ -452,7 +332,7 @@ export default {
         service: "compatibility-calculator-decoding",
         version: VERSION,
         message:
-          "Worker 5.5 готов. Отправьте POST JSON с двумя датами или четырьмя числами пары."
+          "API готов. Отправьте POST JSON с четырьмя числами или текстом первого расчёта."
       });
     }
 
@@ -475,7 +355,6 @@ export default {
         text: report.text,
         dates: calculation.dates,
         pair: calculation.pair,
-        individual: calculation.individual,
         numbers: report.numbers
       });
     } catch (error) {
