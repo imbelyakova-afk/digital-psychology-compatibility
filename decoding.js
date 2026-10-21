@@ -1,3 +1,6 @@
+
+const VERSION = "7.1";
+
 const meanings = {
   1: "Лидерство, самостоятельность и инициатива.",
   2: "Партнёрство, чувствительность и взаимопонимание.",
@@ -18,7 +21,7 @@ const labels = {
 };
 
 function getNumbers(body) {
-  // Вариант: пришёл готовый объект с числами
+  // Готовые числа в объекте
   const pair = body.pair || body.numbers || body.variable_set;
 
   if (pair) {
@@ -29,32 +32,35 @@ function getNumbers(body) {
       final: pair.final ?? pair.finalNumber ?? pair.final_number
     };
 
-    if (Object.values(result).every(
-      n => Number.isInteger(Number(n)) &&
-           Number(n) >= 1 && Number(n) <= 9
-    )) {
-      return Object.fromEntries(
-        Object.entries(result).map(([k, v]) => [k, Number(v)])
-      );
+    const values = Object.values(result).map(Number);
+
+    if (values.every(n => Number.isInteger(n) && n >= 1 && n <= 9)) {
+      return {
+        consciousness: values[0],
+        realization: values[1],
+        mission: values[2],
+        final: values[3]
+      };
     }
   }
 
-  // Вариант: пришёл текст первого API
-  const text = typeof body.text === "string"
-    ? body.text
-    : typeof body.api_result === "string"
-      ? body.api_result
-      : typeof body.result === "string"
-        ? body.result
-        : "";
+  // Текст первого API
+  const text = [
+    body.text,
+    body.api_result,
+    body.apiResult,
+    body.result,
+    body.message
+  ].find(value => typeof value === "string");
 
   if (!text) return null;
 
-  const find = label => {
-    const re = new RegExp(label + "\\s*[:：]\\s*([1-9])", "i");
-    const match = text.match(re);
+  function find(label) {
+    const match = text.match(
+      new RegExp(label + "\\s*[:：]\\s*([1-9])", "i")
+    );
     return match ? Number(match[1]) : null;
-  };
+  }
 
   const result = {
     consciousness: find("Сознание"),
@@ -69,39 +75,37 @@ function getNumbers(body) {
 }
 
 function makeDescription(numbers) {
-  return [
-    "РАСШИФРОВКА СОВМЕСТИМОСТИ",
-    "",
-    ...Object.entries(labels).flatMap(([key, label]) => [
-      `${label}: ${numbers[key]}`,
-      meanings[numbers[key]],
-      ""
-    ])
-  ].join("\n");
+  const lines = ["РАСШИФРОВКА СОВМЕСТИМОСТИ", ""];
+
+  for (const [key, label] of Object.entries(labels)) {
+    const number = numbers[key];
+    lines.push(`${label}: ${number}`);
+    lines.push(meanings[number]);
+    lines.push("");
+  }
+
+  return lines.join("\n").trim();
 }
 
 export default {
   async fetch(request) {
     const headers = {
       "Content-Type": "application/json; charset=utf-8",
-      "Access-Control-Allow-Origin": "*"
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type"
     };
 
     if (request.method === "OPTIONS") {
-      return new Response(null, {
-        headers: {
-          ...headers,
-          "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type"
-        }
-      });
+      return new Response(null, { headers });
     }
 
     if (request.method === "GET") {
       return new Response(JSON.stringify({
         ok: true,
-        version: "7.1",
-        message: "Передайте текст первого API в поле text."
+        service: "compatibility-calculator-decoding",
+        version: VERSION,
+        message: "Передайте POST JSON с текстом первого расчёта."
       }), { headers });
     }
 
@@ -119,23 +123,24 @@ export default {
       if (!numbers) {
         return new Response(JSON.stringify({
           ok: false,
-          error: "Не удалось найти четыре числа в тексте первого API.",
-          receivedType: typeof body.text,
+          version: VERSION,
+          error: "Не найдены четыре числа. Передайте текст первого API в поле text.",
           receivedKeys: Object.keys(body)
         }), { status: 400, headers });
       }
 
       return new Response(JSON.stringify({
         ok: true,
-        version: "7.1",
+        version: VERSION,
         text: makeDescription(numbers),
         numbers
       }), { headers });
 
-    } catch (error) {
+    } catch {
       return new Response(JSON.stringify({
         ok: false,
-        error: "Ошибка обработки JSON."
+        version: VERSION,
+        error: "Не удалось прочитать JSON-запрос."
       }), { status: 400, headers });
     }
   }
